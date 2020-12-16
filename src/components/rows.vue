@@ -259,7 +259,11 @@
             }
           }
           if (index >= 0) {
-            nodes.splice(index, 1)
+            if (nodes.length <= 2) {
+              alert('最少两个节点')
+            } else {
+              nodes.splice(index, 1)
+            }
             return item
           }
         }
@@ -272,7 +276,6 @@
       },
       draw() {
         this.instance.reset()
-        // this.instance.deleteEveryConnection()
         setTimeout(() => {
           this.tree.forEach((o) => {
             this.drawLine(o)

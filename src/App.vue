@@ -5,7 +5,7 @@
     <hr />
     <div>表达式：</div>
     <div>
-      {{ expression }}
+      <input type="text" v-model="expression" style="width: 100%" />
     </div>
     <hr />
     <rows v-model="expression"></rows>
