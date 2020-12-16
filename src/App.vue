@@ -1,73 +1,76 @@
 <template>
   <div id="app">
-    <div>等效表达式：{{ expression }}</div>
-    <div class="row">
-      <row
-        v-for="(item, index) in tree"
-        :value="item"
-        :key="index"
-        :level="1"
-      ></row>
+    <div>构建树形结构数据，渲染图形：</div>
+    <div>{ type: '条件2/并/或', children: []}</div>
+    <hr />
+    <div>表达式：</div>
+    <div>
+      {{ expression }}
     </div>
+    <hr />
+    <rows v-model="expression"></rows>
   </div>
 </template>
 
 <script>
-import Vue from "vue";
-import { jsPlumb } from "jsplumb";
-import { v4 as uuid } from "uuid";
+  import Vue from 'vue'
+  import { jsPlumb } from 'jsplumb'
+  import { v4 as uuid } from 'uuid'
 
-import row from "./components/row";
+  import rows from './components/rows'
 
-Vue.component("row", row);
+  Vue.component('rows', rows)
 
-export default {
-  name: "App",
-  data() {
-    return {
-      tree: [],
-      expression: "",
-    };
-  },
-  computed: {},
-  mounted() {
-    jsPlumb.bind("ready", () => {
-      this.tree = [
+  export default {
+    name: 'App',
+    data() {
+      return {
+        expression: '',
+      }
+    },
+    computed: {},
+    mounted() {
+      let test = [
         {
-          id: uuid(),
-          type: "并",
+          type: '并',
           children: [
             {
-              id: uuid(),
-              type: "条件",
+              type: '条件1',
               children: [],
             },
             {
-              id: uuid(),
-              type: "或",
+              type: '或',
               children: [
                 {
-                  id: uuid(),
-                  type: "条件",
-                  children: [],
-                },
-                {
-                  id: uuid(),
-                  type: "条件",
-                  children: [],
-                },
-                {
-                  id: uuid(),
-                  type: "并",
+                  type: '并',
                   children: [
                     {
-                      id: uuid(),
-                      type: "条件",
+                      type: '条件2',
                       children: [],
                     },
                     {
-                      id: uuid(),
-                      type: "条件",
+                      type: '条件3',
+                      children: [],
+                    },
+                    {
+                      type: '条件4',
+                      children: [],
+                    },
+                  ],
+                },
+                {
+                  type: '条件5',
+                  children: [],
+                },
+                {
+                  type: '并',
+                  children: [
+                    {
+                      type: '条件6',
+                      children: [],
+                    },
+                    {
+                      type: '条件7',
                       children: [],
                     },
                   ],
@@ -75,47 +78,55 @@ export default {
               ],
             },
             {
-              id: uuid(),
-              type: "并",
+              type: '并',
               children: [
                 {
-                  id: uuid(),
-                  type: "条件",
-                  children: [],
+                  type: '并',
+                  children: [
+                    {
+                      type: '条件8',
+                      children: [],
+                    },
+                    {
+                      type: '条件9',
+                      children: [],
+                    },
+                  ],
                 },
                 {
-                  id: uuid(),
-                  type: "条件",
+                  type: '条件10',
                   children: [],
                 },
               ],
             },
           ],
         },
-      ];
-    });
-  },
-  methods: {
-    parseExpression() {
-      let exps = [];
-      this.tree.forEach((o) => {
-        if (o.type === "条件") {
-          exps.push(o.type);
-        } else {
-          exps.push(this.parseExpression(o.children));
-        }
-      });
-      return exps;
+      ]
+      this.expression = this.parseExpression(test).replace(/^\(/, '').replace(/^\(/, '').replace(/\)$/, '').replace(/\)$/, '')
     },
-  },
-};
+    methods: {
+      // 树形数据->表达式
+      parseExpression(children = [], type = '并') {
+        let exps = []
+        children.forEach((o) => {
+          if (/[并或]/.test(o.type)) {
+            exps.push(this.parseExpression(o.children, o.type))
+          } else {
+            exps.push(o.type)
+          }
+        })
+        return `(${exps.join({ 并: '&&', 或: '||' }[type])})`
+      },
+    },
+  }
 </script>
 
 <style lang="less">
-@import "./styles/row.less";
-#app {
-  font-family: "Avenir", Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+  @import './styles/row.less';
+  #app {
+    font-family: 'Avenir', Helvetica, Arial, sans-serif;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 </style>
