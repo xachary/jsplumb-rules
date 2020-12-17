@@ -6,7 +6,7 @@
   flex-shrink: 0;
 
   margin: 10px;
-  // padding-top: @top;
+  padding: 5px;
   white-space: nowrap;
   .row__insert {
     position: relative;
@@ -20,14 +20,27 @@
   }
   .row__header {
     position: relative;
-    width: 4em;
-    line-height: 3em;
-    margin: 0 auto;
+    display: inline-block;
+    padding: 0.5em 1em;
     border: 1px solid #666;
+    .row__header__ct {
+      display: flex;
+      align-items: center;
+      height: 3em;
+    }
+    &.row__header--unset {
+      background-color: #ffffcc;
+    }
+    &.row__header--empty {
+      background-color: #ccffcc;
+    }
+    &.row__header--error {
+      background-color: #ff9999;
+    }
     .row__header__remove {
       position: absolute;
-      top: -@insert-height*0.5;
-      right: -0.5em;
+      top: 0;
+      right: 0;
       width: 1em;
       line-height: @insert-height;
       background: white;
@@ -38,6 +51,7 @@
   .row__items {
     display: flex;
     align-items: flex-start;
+    justify-content: center;
     .row__items__add {
       width: 3em;
       line-height: 3em;

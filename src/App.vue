@@ -25,10 +25,15 @@
     name: 'App',
     data() {
       return {
-        expression: '',
+        expression: localStorage.getItem('expression'),
       }
     },
     computed: {},
+    watch:{
+      expression(){
+        localStorage.setItem('expression',this.expression)
+      }
+    },
     mounted() {
       let test = [
         {
@@ -102,7 +107,7 @@
           ],
         },
       ]
-      this.expression = this.parseExpression(test).replace(/^\(/, '').replace(/^\(/, '').replace(/\)$/, '').replace(/\)$/, '')
+      this.expression = this.expression?this.expression:this.parseExpression(test).replace(/^\(/, '').replace(/^\(/, '').replace(/\)$/, '').replace(/\)$/, '')
     },
     methods: {
       // 树形数据->表达式

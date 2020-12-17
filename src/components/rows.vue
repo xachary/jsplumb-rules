@@ -1,6 +1,6 @@
 <template>
   <div :id="containerId">
-    <row v-for="(item, index) in tree" :value="item" :key="index" :index="index" :level="1" @remove="onRemove"></row>
+    <row v-for="(item, index) in tree" :value="item" :key="index" :index="index" :level="1" @refresh="onRefresh"></row>
   </div>
 </template>
 
@@ -34,12 +34,18 @@
     watch: {
       value: {
         immediate: true,
-        handler() {
-          if (this.ready) {
+        handler(v, o) {
+          if (this.ready && v !== o) {
             this.update()
           }
         },
       },
+      // tree() {
+      //   let temp = this.parseExpression(this.tree)
+      //   console.log(this.value)
+      //   console.log(temp)
+      //   console.log('')
+      // },
     },
     mounted() {
       this.instance = jsPlumb.getInstance({
@@ -53,15 +59,19 @@
     methods: {
       update() {
         if (this.value) {
-          let tree = []
-          this.parseTree(this.value, tree)
+          let tree = this.parseTree(this.value)
           this.injectId(tree)
           this.tree = tree
-
           this.draw()
         } else {
-          this.tree = []
-
+          this.tree = [
+            {
+              value: '',
+              children: [],
+              type: 'unset',
+              id: uuid(),
+            },
+          ]
           this.draw()
         }
       },
@@ -69,7 +79,7 @@
       injectId(children = [], level = 1) {
         children.forEach((o, i) => {
           o.id = o.id ? o.id : `id-${uuid()}`
-          if (o.children.length > 0) {
+          if (o.type === 'logic') {
             o.addBtnId = `id-${uuid()}`
           }
           o.insertBtnId = `id-${uuid()}`
@@ -79,199 +89,124 @@
         })
       },
       // 树形数据->表达式
-      parseExpression(children = [], type = '并') {
+      parseExpression(children = [], value = '', level = 1) {
         let exps = []
         children.forEach((o) => {
-          if (/[并或]/.test(o.type)) {
-            exps.push(this.parseExpression(o.children, o.type))
-          } else {
-            exps.push(o.type)
+          if (o.type === 'logic' && o.children.length >= 2) {
+            if (level === 1) {
+              exps.push(this.parseExpression(o.children, o.value, level + 1))
+            } else {
+              exps.push(`(${this.parseExpression(o.children, o.value, level + 1)})`)
+            }
+          } else if (o.type === 'rule' && o.value) {
+            exps.push(o.value)
           }
         })
-        return `(${exps.join({ 并: '&&', 或: '||' }[type])})`
+        return `${exps.join(value)}`
       },
       // 表达式->树形数据
-      parseTree(expression, tree) {
-        // 左、右符号位置记录栈
-        let leftStack = []
-        let rightStack = []
-        // 记录拆分记录
-        let group = []
-        // 当前层级的逻辑符号
-        let type = ''
-        // 括号块左、右位置
-        let left = 0
-        let right = expression.length - 1
-        // 寻找当前层级的括号快
-        for (let i = 0; i < expression.length; i++) {
-          if (expression[i] === '(') {
-            // 左符号位置记录
-            leftStack.push(i)
-          } else if (expression[i] === ')') {
-            // 右符号位置记录
-            rightStack.push(i)
-            // 寻找到括号快
-            if (leftStack.length === rightStack.length) {
-              // 出栈
-              left = leftStack.shift()
-              right = rightStack.pop()
-              leftStack = []
-              rightStack = []
-              // 处理括号快左侧记录
-              if (left >= 2) {
-                if (!type) {
-                  if (expression.substr(left - 2, 2) === '||') {
-                    // 判断逻辑类型
-                    type = '或'
-                  } else if (expression.substr(left - 2, 2) === '&&') {
-                    // 判断逻辑类型
-                    type = '并'
-                  }
-                }
-
-                // 当前括号块左侧非括号块的条件
-                let rule = ''
-                for (let k = left - 3; k >= 0; k--) {
-                  if (expression[k] === ')') {
-                    // 提取字符串（左侧有其他括号块）
-                    let temp = expression
-                      .substring(k + 1, left - 2)
-                      .replace(/^&&/, '')
-                      .replace(/^\|\|/, '')
-                    if (temp) {
-                      // 拆分
-                      let rules = temp.split('&&')
-                      if (rules.length === 0) {
-                        rules = temp.split('||')
-                      }
-                      // 记录
-                      rules.forEach((o) => {
-                        group.push({
-                          type: 'rule',
-                          str: o,
-                        })
-                      })
-                    }
-
-                    break
-                  } else if (k === 0) {
-                    // 提取字符串（左侧没有其他括号块）
-                    let temp = expression
-                      .substring(k, left - 2)
-                      .replace(/^&&/, '')
-                      .replace(/^||/, '')
-                    if (temp) {
-                      // 拆分
-                      let rules = temp.split('&&')
-                      if (rules.length === 0) {
-                        rules = temp.split('||')
-                      }
-                      // 记录
-                      rules.forEach((o) => {
-                        group.push({
-                          type: 'rule',
-                          str: o,
-                        })
-                      })
-                    }
-                    break
-                  }
-                }
-              }
-              // 需要递归处理的节点
-              group.push({
-                type: 'next',
-                str: expression.substring(left + 1, right),
+      parseTree(expression) {
+        let records = this.parseTreeRecord(expression)
+        let node = this.parseTreeNode(records)
+        return node ? [node] : []
+      },
+      parseTreeNode(records) {
+        let logic = records.find((o) => o.type === 'logic')
+        if (logic) {
+          let other = records.filter((o) => o.type !== 'logic')
+          let node = {
+            value: logic.expr,
+            children: [],
+            type: 'logic',
+          }
+          other.forEach((o) => {
+            if (o.type === 'next') {
+              node.children.push(this.parseTreeNode(o.children))
+            } else {
+              node.children.push({
+                value: o.expr,
+                children: [],
+                type: 'rule',
               })
             }
-          }
-        }
-        // 当前括号块右侧非括号块的条件
-        if (right < expression.length - 1) {
-          let temp = expression.substring(right + 3, expression.length)
-          // 拆分
-          let rules = temp.split('&&')
-          if (rules.length === 0) {
-            rules = temp.split('||')
-          }
-          // 记录
-          rules.forEach((o) => {
-            group.push({
-              type: 'rule',
-              str: o,
-            })
           })
+          return node
+        } else {
+          return records.length > 0 ? this.parseTreeNode(records[0].children) : null
         }
-        // 辅助计算的顶级额外逻辑符号
-        if (!type) {
-          type = '并'
-        }
+      },
+      parseTreeRecord(expression) {
+        let ruleStack = []
+        let ruleArray = []
+        for (let i = 0; i < expression.length; i++) {
+          if (expression[i] === '(') {
+            let leftStack = []
+            let rightStack = []
+            let k = i
+            for (; k < expression.length; k++) {
+              if (expression[k] === '(') {
+                // 左符号位置记录
+                leftStack.push(k)
+              } else if (expression[k] === ')') {
+                // 右符号位置记录
+                rightStack.push(k)
+                // 寻找到括号快
+                if (leftStack.length === rightStack.length) {
+                  // 出栈
+                  let left = leftStack.shift()
+                  let right = rightStack.pop()
+                  leftStack = []
+                  rightStack = []
+                  let next = expression.substring(left + 1, right)
+                  ruleArray.push({
+                    expr: next,
+                    type: 'next',
+                    children: this.parseTreeRecord(next),
+                  })
+                  break
+                }
+              }
+            }
+            i = k
+          } else if (expression[i] === '&' || expression[i] === '|') {
+            if (ruleStack.length > 0) {
+              ruleArray.push({
+                expr: ruleStack.join(''),
+                type: 'rule',
+                children: [],
+              })
+            }
 
-        if (group.length > 0) {
-          // 构建父节点
-          let children = []
-          tree.push({
-            type,
-            children,
-          })
-          for (let i = 0; i < group.length; i++) {
-            if (group[i].type === 'next') {
-              // 递归处理表达式
-              this.parseTree(group[i].str, children)
-            } else {
-              // 已经是条件，入队
-              children.push({
-                type: group[i].str,
+            ruleArray.push({
+              expr: expression[i] + expression[i],
+              type: 'logic',
+              children: [],
+            })
+            ruleStack = []
+            i += 1
+          } else {
+            ruleStack.push(expression[i])
+            if (i === expression.length - 1) {
+              ruleArray.push({
+                expr: ruleStack.join(''),
+                type: 'rule',
                 children: [],
               })
             }
           }
-        } else {
-          // 当前表达式没有括号块
-          // 拆分
-          let children = expression.split('&&')
-          let type = '并'
-          if (children.length === 0) {
-            children = expression.split('||')
-            type = '或'
-          }
-          // 入队
-          tree.push({
-            type,
-            children: children.map((o) => ({
-              type: o,
-              children: [],
-            })),
-          })
         }
-      },
-      // 通过key找节点
-      remove(nodes = [], key = '', node = null) {
-        if (!node) {
-          let item = null
-          let index = -1
-          for (let i = 0; i < nodes.length; i++) {
-            if (nodes[i].id === key) {
-              index = i
-              item = nodes[i]
-            } else {
-              node = this.remove(nodes[i].children, key, node)
-            }
-          }
-          if (index >= 0) {
-            if (nodes.length <= 2) {
-              alert('最少两个节点')
-            } else {
-              nodes.splice(index, 1)
-            }
-            return item
-          }
-        }
-        return node
+        return ruleArray
       },
       // 重画线
-      onRemove(item) {
-        this.remove(this.tree, item.id)
+      onRefresh() {
+        let temp = this.parseExpression(this.tree)
+        console.log(this.value)
+        console.log(temp)
+        console.log('')
+        if (this.value !== temp) {
+          this.$emit('change', temp)
+        }
+
         this.draw()
       },
       draw() {
@@ -326,6 +261,13 @@
           )
         }
       },
+    },
+    provide() {
+      return {
+        share: {
+          moveId: '',
+        },
+      }
     },
   }
 </script>

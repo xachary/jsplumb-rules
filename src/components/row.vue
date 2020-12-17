@@ -1,13 +1,50 @@
 <template>
   <div class="row" v-if="value" :style="{ 'background-color': `rgba(0,0,0,${5 + 1 * value.level}%)` }">
-    <div class="row__insert" :id="value.insertBtnId" @click="onInsert">+</div>
-    <div class="row__header" :id="value.id">
-      {{ value.type }}
-      <div class="row__header__remove" @click="onRemove(value)">-</div>
+    <div
+      class="row__insert"
+      :id="value.insertBtnId"
+      @click="onInsert"
+      :style="{
+        'background-color':
+          value.type === 'unset' || value.type === 'unset-logic' || !value.value || (value.type === 'logic' && value.children.length < 2)
+            ? '#ddd'
+            : undefined,
+      }">
+      +
     </div>
-    <div class="row__items" v-if="value.children.length > 0">
-      <row v-for="item in value.children" :value="item" :key="item.id" :level="value.level + 1" @remove="onRemove"> </row>
-      <div class="row">
+    <div
+      class="row__header"
+      :id="value.id"
+      :class="{
+        'row__header--unset': value.type === 'unset' || value.type === 'unset-logic',
+        'row__header--empty': value.type === 'rule' && !value.value,
+        'row__header--error': value.type === 'logic' && value.children.length < 2,
+      }"
+      @drop="onDrop"
+      @dragstart="onDragstart"
+      @dragover="onDragover"
+      @dragend="onDragend"
+      draggable>
+      <div class="row__header__ct">
+        <span v-if="value.type === 'rule'">
+          {{ value.value ? value.value : '设置条件(待实现)' }}
+        </span>
+        <div v-if="value.type === 'logic'">
+          <span> {{ value.value }} </span><br />
+          <span v-if="value.children.length < 2">请设置至少两个条件</span>
+        </div>
+        <div v-if="value.type === 'unset' || value.type === 'unset-logic'" style="text-align: left">
+          <label :for="value.id"><input :name="value.id" type="radio" @change="onChangeType('logic', '&&')" />&&</label><br />
+          <label :for="value.id"><input :name="value.id" type="radio" @change="onChangeType('logic', '||')" />||</label><br />
+          <label :for="value.id" v-if="value.type === 'unset'">
+            <input :name="value.id" type="radio" @change="onChangeType('rule', Date.now())" />条件</label>
+        </div>
+      </div>
+      <div class="row__header__remove" @click="onRemove" v-if="value.level > 1">-</div>
+    </div>
+    <div class="row__items">
+      <row v-for="item in value.children" :value="item" :key="item.id" :level="value.level + 1" :parent="value" @refresh="$emit('refresh')"> </row>
+      <div class="row" v-if="value.type === 'logic'">
         <div class="row__items__add" :id="value.addBtnId" @click="onAdd">增加</div>
       </div>
     </div>
@@ -21,6 +58,10 @@
   export default {
     props: {
       value: {
+        type: Object,
+        default: null,
+      },
+      parent: {
         type: Object,
         default: null,
       },
@@ -41,54 +82,68 @@
     },
     mounted() {},
     methods: {
-      drawLine() {
-        this.$nextTick(() => {
-          let common = {
-            endpoint: 'Blank',
-            connector: ['Flowchart'],
-          }
-          jsPlumb.connect(
-            {
-              source: this.value.id,
-              target: this.value.addBtnId,
-              paintStyle: { stroke: '#666666', strokeWidth: 1, dashstyle: '2 2' },
-              overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
-              anchor: ['Bottom', 'Top'],
-            },
-            common
-          )
-          this.value.children.forEach((o) => {
-            jsPlumb.connect(
-              {
-                source: this.value.id,
-                target: o.id,
-                paintStyle: { stroke: '#0066FF', strokeWidth: 2 },
-                overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
-                anchor: ['Bottom', 'Top'],
-              },
-              common
-            )
-          })
-          if (this.level === 1) {
-            jsPlumb.connect(
-              {
-                source: this.value.insertBtnId,
-                target: this.value.id,
-                paintStyle: { stroke: '#0066FF', strokeWidth: 2 },
-                overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
-                anchor: ['Bottom', 'Top'],
-              },
-              common
-            )
-          }
+      onAdd() {
+        this.value.children.push({
+          value: '',
+          children: [],
+          type: 'unset',
+          id: uuid(),
         })
+        this.$emit('refresh')
       },
-      onAdd() {},
-      onInsert() {},
-      onRemove(item) {
-        this.$emit('remove', item)
+      onInsert() {
+        if (
+          !(
+            this.value.type === 'unset' ||
+            this.value.type === 'unset-logic' ||
+            !this.value.value ||
+            (this.value.type === 'logic' && this.value.children.length < 2)
+          )
+        ) {
+          let type = this.value.type
+          this.value.children = [Object.assign({}, this.value)]
+          this.value.value = ''
+          this.value.type = 'unset-logic'
+          this.value.id = uuid()
+          this.$emit('refresh')
+        }
+      },
+      onRemove() {
+        let index = this.parent.children.findIndex((o) => o.id === this.value.id)
+        if (index >= 0) {
+          this.parent.children.splice(index, 1)
+          this.$emit('refresh')
+        }
+      },
+      onChangeType(type, value) {
+        this.value.type = type
+        this.value.value = value
+        if (this.value.type === 'logic') {
+          this.value.addBtnId = `id-${uuid()}`
+        }
+        this.$emit('refresh')
+      },
+      onDragstart(e) {
+        e.dataTransfer.setData('node', JSON.stringify(this.value))
+      },
+      onDrop(e) {
+        if (this.value.type === 'logic') {
+          let node = JSON.parse(e.dataTransfer.getData('node'))
+          this.value.children.push(node)
+          this.share.moveId = node.id
+        }
+      },
+      onDragover(e) {
+        e.preventDefault()
+      },
+      onDragend(e) {
+        if (this.share.moveId) {
+          this.onRemove()
+          this.share.moveId = ''
+        }
       },
     },
+    inject: ['share'],
   }
 </script>
 
