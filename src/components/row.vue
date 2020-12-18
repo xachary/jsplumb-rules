@@ -26,15 +26,15 @@
       @dragstart="onDragstart"
       @dragover="onDragover"
       @dragend="onDragend"
-      :draggable="
-        value.level > 1 && (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0))
-      ">
+      :draggable="value.level > 1">
+      <!-- (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0)) -->
       <div class="row__header__ct">
         <span v-if="value.type === 'rule'">
           {{ value.value ? value.value : '设置条件(待实现)' }}
         </span>
         <div v-if="value.type === 'logic' && value.value !== '~~'">
-          <span> {{ value.value }} </span><br />
+          <span> {{ value.value }} </span>
+          <button @click="onSwitch">切换</button><br />
           <span v-if="value.children.filter((o) => o.type !== 'placeholder').length < 2">请设置至少两个条件</span>
         </div>
         <div v-if="value.type === 'unset' || (value.type === 'logic' && value.value === '~~')" style="text-align: left">
@@ -101,22 +101,17 @@
       },
       onInsert() {
         if (this.value.type !== 'unset' && this.value.type !== 'unset-logic') {
-          let index = this.parent.children.findIndex((o) => o.id === this.value.id)
-          this.parent.children.splice(index, 1)
-          let node = {
-            value: '~~',
-            children: [this.value],
-            type: 'logic',
-            id: uuid(),
+          if (this.parent) {
+            let index = this.parent.children.findIndex((o) => o.id === this.value.id)
+            let node = {
+              value: '~~',
+              children: [this.value],
+              type: 'logic',
+              id: uuid(),
+            }
+            this.parent.children.splice(index, 1, node)
+            this.$emit('refresh')
           }
-          debugger
-          this.parent.children.push(node)
-          // this.value.children = [Object.assign({}, this.value)]
-          // this.value.value = '#'
-          // this.value.type = 'unset'
-          // this.value.id = uuid()
-
-          this.$emit('refresh')
         }
       },
       onRemove() {
@@ -141,10 +136,14 @@
         e.dataTransfer.setData('node', JSON.stringify(this.value))
       },
       onDrop(e) {
+        // TODO: 拖动左右移动
         if (this.value.type === 'logic') {
           let node = JSON.parse(e.dataTransfer.getData('node'))
-          this.value.children.push(node)
-          this.share.moveId = node.id
+
+          if (this.value.id !== node.id) {
+            this.value.children.push(node)
+            this.share.moveId = node.id
+          }
         }
       },
       onDragover(e) {
@@ -155,6 +154,9 @@
           this.onRemove()
           this.share.moveId = ''
         }
+      },
+      onSwitch() {
+        this.value.value = this.value.value === '&&' ? '||' : '&&'
       },
     },
     inject: ['share'],

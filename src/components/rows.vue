@@ -1,6 +1,6 @@
 <template>
   <div :id="containerId">
-    <row v-for="(item, index) in tree" :value="item" :key="index" :index="index" :level="1" @refresh="onRefresh"></row>
+    <row v-for="(item, index) in tree.children" :value="item" :key="index" :index="index" :level="1" :parent="tree" @refresh="onRefresh"></row>
   </div>
 </template>
 
@@ -24,7 +24,16 @@
     },
     data() {
       return {
-        tree: [],
+        tree: {
+          children: [
+            {
+              value: '?',
+              children: [],
+              type: 'unset',
+              id: uuid(),
+            },
+          ],
+        },
         ready: false,
         instance: null,
         containerId: uuid(),
@@ -40,12 +49,6 @@
           }
         },
       },
-      // tree() {
-      //   let temp = this.parseExpression(this.tree)
-      //   console.log(this.value)
-      //   console.log(temp)
-      //   console.log('')
-      // },
     },
     mounted() {
       this.instance = jsPlumb.getInstance({
@@ -59,29 +62,29 @@
     methods: {
       update() {
         if (this.value) {
-          let tree = this.parseTree(this.value)
-          this.injectId(tree)
+          let tree = {
+            children: this.parseTree(this.value),
+          }
+          this.injectId(tree.children)
           this.tree = tree
           this.draw()
         } else {
-          this.tree = [
-            {
-              value: '',
-              children: [],
-              type: 'unset',
-              id: uuid(),
-            },
-          ]
+          this.tree = {
+            children: [
+              {
+                value: '?',
+                children: [],
+                type: 'unset',
+                id: uuid(),
+              },
+            ],
+          }
           this.draw()
         }
       },
       // 注入/更新节点id
       injectId(children = [], level = 1) {
         children.forEach((o, i) => {
-          if (!o) {
-            console.log(children)
-            debugger
-          }
           if (o.type === 'logic') {
             o.addBtnId = `id-${uuid()}`
           }
@@ -253,7 +256,7 @@
       },
       // 重画线
       onRefresh() {
-        let temp = this.parseExpression(this.tree)
+        let temp = this.parseExpression(this.tree.children)
         console.log(this.value)
         console.log(temp)
         console.log('')
@@ -266,7 +269,7 @@
       draw() {
         this.instance.reset()
         setTimeout(() => {
-          this.tree.forEach((o) => {
+          this.tree.children.forEach((o) => {
             this.drawLine(o)
           })
         })
