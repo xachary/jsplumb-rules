@@ -78,11 +78,18 @@
       // 注入/更新节点id
       injectId(children = [], level = 1) {
         children.forEach((o, i) => {
-          o.id = o.id ? o.id : `id-${uuid()}`
+          if (!o) {
+            console.log(children)
+            debugger
+          }
           if (o.type === 'logic') {
             o.addBtnId = `id-${uuid()}`
           }
-          o.insertBtnId = `id-${uuid()}`
+          if (o.type !== 'placeholder') {
+            o.id = o.id ? o.id : `id-${uuid()}`
+            o.insertBtnId = `id-${uuid()}`
+          }
+
           o.level = level
           o.index = i
           this.injectId(o.children, level + 1)
@@ -92,13 +99,36 @@
       parseExpression(children = [], value = '', level = 1) {
         let exps = []
         children.forEach((o) => {
-          if (o.type === 'logic' && o.children.length >= 2) {
-            if (level === 1) {
-              exps.push(this.parseExpression(o.children, o.value, level + 1))
+          if (o.type === 'logic') {
+            if (o.children.length >= 2) {
+              if (level === 1) {
+                exps.push(this.parseExpression(o.children, o.value, level + 1))
+              } else {
+                exps.push(`(${this.parseExpression(o.children, o.value, level + 1)})`)
+              }
             } else {
-              exps.push(`(${this.parseExpression(o.children, o.value, level + 1)})`)
+              let placeholder = []
+              if (o.children.length === 0) {
+                placeholder = [
+                  { value: '#', children: [], type: 'placeholder' },
+                  { value: '#', children: [], type: 'placeholder' },
+                ]
+              } else if (o.children.length === 1) {
+                placeholder = [{ value: '#', children: [], type: 'placeholder' }]
+              }
+              if (level === 1) {
+                exps.push(this.parseExpression([...placeholder, ...o.children], o.value, level + 1))
+              } else {
+                exps.push(`(${this.parseExpression([...placeholder, ...o.children], o.value, level + 1)})`)
+              }
             }
           } else if (o.type === 'rule' && o.value) {
+            exps.push(o.value)
+          } else if (o.type === 'placeholder') {
+            exps.push(o.value)
+          } else if (o.type === 'unset') {
+            exps.push(o.value)
+          } else if (o.type === 'unset-logic') {
             exps.push(o.value)
           }
         })
@@ -122,6 +152,18 @@
           other.forEach((o) => {
             if (o.type === 'next') {
               node.children.push(this.parseTreeNode(o.children))
+            } else if (o.type === 'unset') {
+              node.children.push({
+                value: '?',
+                children: [],
+                type: 'unset',
+              })
+            } else if (o.type === 'placeholder') {
+              node.children.push({
+                value: '#',
+                children: [],
+                type: 'placeholder',
+              })
             } else {
               node.children.push({
                 value: o.expr,
@@ -168,7 +210,7 @@
               }
             }
             i = k
-          } else if (expression[i] === '&' || expression[i] === '|') {
+          } else if (expression[i] === '&' || expression[i] === '|' || expression[i] === '~') {
             if (ruleStack.length > 0) {
               ruleArray.push({
                 expr: ruleStack.join(''),
@@ -184,6 +226,18 @@
             })
             ruleStack = []
             i += 1
+          } else if (expression[i] === '#') {
+            ruleArray.push({
+              expr: expression[i],
+              type: 'placeholder',
+              children: [],
+            })
+          } else if (expression[i] === '?') {
+            ruleArray.push({
+              expr: expression[i],
+              type: 'unset',
+              children: [],
+            })
           } else {
             ruleStack.push(expression[i])
             if (i === expression.length - 1) {

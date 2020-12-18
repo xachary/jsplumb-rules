@@ -1,12 +1,14 @@
 <template>
-  <div class="row" v-if="value" :style="{ 'background-color': `rgba(0,0,0,${5 + 1 * value.level}%)` }">
+  <div class="row" v-if="value.type !== 'placeholder'" :style="{ 'background-color': `rgba(0,0,0,${5 + 1 * value.level}%)` }">
     <div
       class="row__insert"
       :id="value.insertBtnId"
       @click="onInsert"
       :style="{
         'background-color':
-          value.type === 'unset' || value.type === 'unset-logic' || !value.value || (value.type === 'logic' && value.children.length < 2)
+          value.type === 'unset' ||
+          !value.value ||
+          (value.type === 'logic' && (value.value === '~~' || value.children.filter((o) => o.type !== 'placeholder').length < 2))
             ? '#ddd'
             : undefined,
       }">
@@ -16,24 +18,26 @@
       class="row__header"
       :id="value.id"
       :class="{
-        'row__header--unset': value.type === 'unset' || value.type === 'unset-logic',
+        'row__header--unset': value.type === 'unset',
         'row__header--empty': value.type === 'rule' && !value.value,
-        'row__header--error': value.type === 'logic' && value.children.length < 2,
+        'row__header--error': value.type === 'logic' && (value.children.filter((o) => o.type !== 'placeholder').length < 2 || value.value === '~~'),
       }"
       @drop="onDrop"
       @dragstart="onDragstart"
       @dragover="onDragover"
       @dragend="onDragend"
-      draggable>
+      :draggable="
+        value.level > 1 && (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0))
+      ">
       <div class="row__header__ct">
         <span v-if="value.type === 'rule'">
           {{ value.value ? value.value : '设置条件(待实现)' }}
         </span>
-        <div v-if="value.type === 'logic'">
+        <div v-if="value.type === 'logic' && value.value !== '~~'">
           <span> {{ value.value }} </span><br />
-          <span v-if="value.children.length < 2">请设置至少两个条件</span>
+          <span v-if="value.children.filter((o) => o.type !== 'placeholder').length < 2">请设置至少两个条件</span>
         </div>
-        <div v-if="value.type === 'unset' || value.type === 'unset-logic'" style="text-align: left">
+        <div v-if="value.type === 'unset' || (value.type === 'logic' && value.value === '~~')" style="text-align: left">
           <label :for="value.id"><input :name="value.id" type="radio" @change="onChangeType('logic', '&&')" />&&</label><br />
           <label :for="value.id"><input :name="value.id" type="radio" @change="onChangeType('logic', '||')" />||</label><br />
           <label :for="value.id" v-if="value.type === 'unset'">
@@ -83,8 +87,12 @@
     mounted() {},
     methods: {
       onAdd() {
+        let index = this.value.children.findIndex((o) => o.type === 'placeholder')
+        if (index >= 0) {
+          this.value.children.splice(index, 1)
+        }
         this.value.children.push({
-          value: '',
+          value: '?',
           children: [],
           type: 'unset',
           id: uuid(),
@@ -92,19 +100,22 @@
         this.$emit('refresh')
       },
       onInsert() {
-        if (
-          !(
-            this.value.type === 'unset' ||
-            this.value.type === 'unset-logic' ||
-            !this.value.value ||
-            (this.value.type === 'logic' && this.value.children.length < 2)
-          )
-        ) {
-          let type = this.value.type
-          this.value.children = [Object.assign({}, this.value)]
-          this.value.value = ''
-          this.value.type = 'unset-logic'
-          this.value.id = uuid()
+        if (this.value.type !== 'unset' && this.value.type !== 'unset-logic') {
+          let index = this.parent.children.findIndex((o) => o.id === this.value.id)
+          this.parent.children.splice(index, 1)
+          let node = {
+            value: '~~',
+            children: [this.value],
+            type: 'logic',
+            id: uuid(),
+          }
+          debugger
+          this.parent.children.push(node)
+          // this.value.children = [Object.assign({}, this.value)]
+          // this.value.value = '#'
+          // this.value.type = 'unset'
+          // this.value.id = uuid()
+
           this.$emit('refresh')
         }
       },
@@ -112,6 +123,9 @@
         let index = this.parent.children.findIndex((o) => o.id === this.value.id)
         if (index >= 0) {
           this.parent.children.splice(index, 1)
+          if (this.parent.children.length < 2) {
+            this.parent.children.splice(0, 0, { value: '#', children: [], type: 'placeholder' })
+          }
           this.$emit('refresh')
         }
       },
