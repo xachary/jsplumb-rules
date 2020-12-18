@@ -5,7 +5,7 @@
       <input type="text" v-model="expression" style="width: 100%" />
     </div>
     <hr />
-    <rows v-model="expression"></rows>
+    <rows v-model="expression" style="margin: 0 auto; box-shadow: 0 0 10px 0 #dddddd"></rows>
   </div>
 </template>
 

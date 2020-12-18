@@ -4,6 +4,8 @@
       class="row__insert"
       :id="value.insertBtnId"
       @click="onInsert"
+      @mousedown.stop
+      @mouseup.stop
       :style="{
         'background-color':
           value.type === 'unset' ||
@@ -28,7 +30,9 @@
       @dragover="onDragover"
       @dragend="onDragend"
       @dragleave="onDragleave"
-      :draggable="value.level > 1">
+      :draggable="value.level > 1"
+      @mousedown.stop
+      @mouseup.stop>
       <!-- (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0)) -->
       <div class="row__header__ct">
         <span v-if="value.type === 'rule'">
@@ -51,7 +55,7 @@
     <div class="row__items">
       <row v-for="item in value.children" :value="item" :key="item.id" :level="value.level + 1" :parent="value" @refresh="$emit('refresh')"> </row>
       <div class="row" v-if="value.type === 'logic'">
-        <div class="row__items__add" :id="value.addBtnId" @click="onAdd">增加</div>
+        <div class="row__items__add" :id="value.addBtnId" @click="onAdd" @mousedown.stop @mouseup.stop>增加</div>
       </div>
     </div>
   </div>

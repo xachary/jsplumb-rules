@@ -1,6 +1,36 @@
 <template>
-  <div :id="containerId">
-    <row v-for="(item, index) in tree.children" :value="item" :key="index" :index="index" :level="1" :parent="tree" @refresh="onRefresh"></row>
+  <div
+    class="rows"
+    ref="rows"
+    @mousewheel="onMousewheel"
+    @mousemove="onMouseover"
+    @mousedown="onMousedown"
+    @mouseup="onMouseup"
+    @mouseleave="onMouseleave">
+    over: {{ overX }},{{ overY }}
+    <br />
+    ctOver: {{ ctOverX }},{{ ctOverY }}
+    <br />
+    ct: {{ ctWidth }},{{ ctHeight }} / {{ ctLeft }},{{ ctTop }} / {{ ctLeft + left }},{{ ctTop + top }}
+    <br />
+    按下: {{ isDown }}
+    <br />
+    start: {{ startX }},{{ startY }}
+    <br />
+    move: {{ moveX }},{{ moveY }}
+    <br />
+    pos: {{ left }},{{ top }}
+    <br />
+    ct: {{ ctLeft }},{{ ctTop }}
+    <br />
+    <div
+      class="rows__ct"
+      ref="ct"
+      :id="containerId"
+      :style="{ transform: `scale(${1 + zoom})`, top: `${top}px`, left: `${left}px` }"
+      @mousemove="onCtMouseover">
+      <row v-for="(item, index) in tree.children" :value="item" :key="index" :index="index" :level="1" :parent="tree" @refresh="onRefresh"></row>
+    </div>
   </div>
 </template>
 
@@ -41,6 +71,27 @@
         ready: false,
         instance: null,
         containerId: uuid(),
+        //
+        zoom: 0,
+        top: 0,
+        left: 0,
+        overX: 0,
+        overY: 0,
+        startX: 0,
+        startY: 0,
+        moveX: 0,
+        moveY: 0,
+        offsetX: 0,
+        offsetY: 0,
+        lastLeft: 0,
+        lastTop: 0,
+        isDown: false,
+        ctTop: 0,
+        ctLeft: 0,
+        ctWidth: 0,
+        ctHeight: 0,
+        ctOverX: 0,
+        ctOverY: 0,
       }
     },
     computed: {},
@@ -62,6 +113,30 @@
         this.ready = true
         this.update()
       })
+      let { top, left } = this.$refs.ct.getBoundingClientRect()
+      this.ctTop = top
+      this.ctLeft = left
+      // 监听容器尺寸变化
+      new ResizeObserver(() => {
+        // console.log(this.$refs.rows.getBoundingClientRect())
+        // let { top, left } = this.$refs.rows.getBoundingClientRect()
+        // this.ctTop = top
+        // this.ctLeft = left
+      }).observe(this.$refs.rows)
+      window.addEventListener('resize', () => {
+        // console.log(this.$refs.ct.getBoundingClientRect())
+        // let { top, left } = this.$refs.ct.getBoundingClientRect()
+        // this.ctTop = top
+        // this.ctLeft = left
+      })
+      //
+      new ResizeObserver(() => {
+        let { top, left, width, height } = this.$refs.ct.getBoundingClientRect()
+        this.ctWidth = width
+        this.ctHeight = height
+        this.ctTop = top
+        this.ctLeft = left
+      }).observe(this.$refs.ct)
     },
     methods: {
       update() {
@@ -306,17 +381,19 @@
         }
 
         item.children.forEach((o) => {
-          this.instance.connect(
-            {
-              source: item.id,
-              target: o.id,
-              paintStyle: { stroke: '#0066FF', strokeWidth: 2 },
-              overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
-              anchor: ['Bottom', 'Top'],
-            },
-            common
-          )
-          this.drawLine(o, level + 1)
+          if (o.type !== 'placeholder') {
+            this.instance.connect(
+              {
+                source: item.id,
+                target: o.id,
+                paintStyle: { stroke: '#0066FF', strokeWidth: 2 },
+                overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
+                anchor: ['Bottom', 'Top'],
+              },
+              common
+            )
+            this.drawLine(o, level + 1)
+          }
         })
         if (level === 1) {
           this.instance.connect(
@@ -330,6 +407,51 @@
             common
           )
         }
+      },
+      //
+      onMousewheel(e) {
+        if (e.deltaY < 0) {
+          if (this.zoom < 2.8) {
+            this.zoom += 0.2
+          }
+        } else if (e.deltaY > 0) {
+          if (this.zoom > -0.7) {
+            this.zoom -= 0.2
+          }
+        }
+        this.left = -(this.ctOverX - this.ctLeft) * (1 + this.zoom) * this.zoom
+        this.top = -(this.ctOverY - this.ctTop) * (1 + this.zoom) * this.zoom
+        this.lastLeft = this.left
+        this.lastTop = this.top
+      },
+      onMouseover(e) {
+        this.overX = e.clientX
+        this.overY = e.clientY
+        if (this.isDown) {
+          this.moveX = e.clientX
+          this.moveY = e.clientY
+          this.left = this.lastLeft + this.moveX - this.startX
+          this.top = this.lastTop + this.moveY - this.startY
+        }
+      },
+      onMousedown(e) {
+        this.startX = e.clientX
+        this.startY = e.clientY
+        this.isDown = true
+      },
+      onMouseup(e) {
+        this.isDown = false
+        this.lastLeft = this.left
+        this.lastTop = this.top
+      },
+      onMouseleave() {
+        this.isDown = false
+        this.lastLeft = this.left
+        this.lastTop = this.top
+      },
+      onCtMouseover(e) {
+        this.ctOverX = e.clientX
+        this.ctOverY = e.clientY
       },
     },
     provide() {
