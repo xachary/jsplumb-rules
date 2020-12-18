@@ -25,10 +25,14 @@
     data() {
       return {
         tree: {
+          parents: [],
+          id: uuid(),
+          type: 'root',
           children: [
             {
               value: '?',
               children: [],
+              parents: [],
               type: 'unset',
               id: uuid(),
             },
@@ -64,16 +68,23 @@
         if (this.value) {
           let tree = {
             children: this.parseTree(this.value),
+            parents: [],
+            id: uuid(),
+            type: 'root',
           }
-          this.injectId(tree.children)
+          this.injectId(tree)
           this.tree = tree
           this.draw()
         } else {
           this.tree = {
+            parents: [],
+            id: uuid(),
+            type: 'root',
             children: [
               {
                 value: '?',
                 children: [],
+                parents: [],
                 type: 'unset',
                 id: uuid(),
               },
@@ -83,19 +94,21 @@
         }
       },
       // 注入/更新节点id
-      injectId(children = [], level = 1) {
-        children.forEach((o, i) => {
+      injectId(node, level = 1) {
+        node.children.forEach((o, i) => {
           if (o.type === 'logic') {
-            o.addBtnId = `id-${uuid()}`
+            o.addBtnId = uuid()
           }
           if (o.type !== 'placeholder') {
-            o.id = o.id ? o.id : `id-${uuid()}`
-            o.insertBtnId = `id-${uuid()}`
+            o.id = o.id ? o.id : uuid()
+            o.insertBtnId = uuid()
           }
+
+          o.parents = node.parents.concat([node.id])
 
           o.level = level
           o.index = i
-          this.injectId(o.children, level + 1)
+          this.injectId(o, level + 1)
         })
       },
       // 树形数据->表达式
@@ -113,11 +126,11 @@
               let placeholder = []
               if (o.children.length === 0) {
                 placeholder = [
-                  { value: '#', children: [], type: 'placeholder' },
-                  { value: '#', children: [], type: 'placeholder' },
+                  { value: '#', children: [], type: 'placeholder', parents: o.parents.concat([o.id]) },
+                  { value: '#', children: [], type: 'placeholder', parents: o.parents.concat([o.id]) },
                 ]
               } else if (o.children.length === 1) {
-                placeholder = [{ value: '#', children: [], type: 'placeholder' }]
+                placeholder = [{ value: '#', children: [], type: 'placeholder', parents: o.parents.concat([o.id]) }]
               }
               if (level === 1) {
                 exps.push(this.parseExpression([...placeholder, ...o.children], o.value, level + 1))
@@ -323,6 +336,7 @@
       return {
         share: {
           moveId: '',
+          dropId: '',
         },
       }
     },

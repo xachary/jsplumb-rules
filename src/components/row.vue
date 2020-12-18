@@ -21,6 +21,7 @@
         'row__header--unset': value.type === 'unset',
         'row__header--empty': value.type === 'rule' && !value.value,
         'row__header--error': value.type === 'logic' && (value.children.filter((o) => o.type !== 'placeholder').length < 2 || value.value === '~~'),
+        'row__header--disabled': status === 'disabled',
       }"
       @drop="onDrop"
       @dragstart="onDragstart"
@@ -71,7 +72,9 @@
       },
     },
     data() {
-      return {}
+      return {
+        status: '',
+      }
     },
     computed: {},
     watch: {
@@ -94,6 +97,7 @@
         this.value.children.push({
           value: '?',
           children: [],
+          parents: [...this.value.parents],
           type: 'unset',
           id: uuid(),
         })
@@ -103,11 +107,14 @@
         if (this.value.type !== 'unset' && this.value.type !== 'unset-logic') {
           if (this.parent) {
             let index = this.parent.children.findIndex((o) => o.id === this.value.id)
+            let id = uuid()
+            this.value.parents.push(id)
             let node = {
               value: '~~',
               children: [this.value],
+              parents: [...this.value.parents],
               type: 'logic',
-              id: uuid(),
+              id,
             }
             this.parent.children.splice(index, 1, node)
             this.$emit('refresh')
@@ -134,26 +141,35 @@
       },
       onDragstart(e) {
         e.dataTransfer.setData('node', JSON.stringify(this.value))
+        this.share.moveId = this.value.id
       },
       onDrop(e) {
         // TODO: 拖动左右移动
         if (this.value.type === 'logic') {
           let node = JSON.parse(e.dataTransfer.getData('node'))
-
-          if (this.value.id !== node.id) {
+          if (this.value.id !== node.id && !this.value.parents.includes(node.id)) {
             this.value.children.push(node)
-            this.share.moveId = node.id
+            this.share.dropId = this.value.id
           }
         }
+        this.status = ''
       },
       onDragover(e) {
         e.preventDefault()
+        if (this.value.type === 'logic') {
+          if (this.value.parents.includes(this.share.moveId)) {
+            this.status = 'disabled'
+            return
+          }
+        }
+        this.status = ''
       },
       onDragend(e) {
-        if (this.share.moveId) {
+        if (this.share.dropId) {
           this.onRemove()
-          this.share.moveId = ''
+          this.share.dropId = ''
         }
+        this.status = ''
       },
       onSwitch() {
         this.value.value = this.value.value === '&&' ? '||' : '&&'
