@@ -27,6 +27,7 @@
       @dragstart="onDragstart"
       @dragover="onDragover"
       @dragend="onDragend"
+      @dragleave="onDragleave"
       :draggable="value.level > 1">
       <!-- (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0)) -->
       <div class="row__header__ct">
@@ -161,7 +162,14 @@
             this.status = 'disabled'
             return
           }
+        } else if (this.value.type === 'rule') {
+          this.status = 'disabled'
+          return
         }
+
+        this.status = ''
+      },
+      onDragleave(e) {
         this.status = ''
       },
       onDragend(e) {
@@ -169,7 +177,6 @@
           this.onRemove()
           this.share.dropId = ''
         }
-        this.status = ''
       },
       onSwitch() {
         this.value.value = this.value.value === '&&' ? '||' : '&&'

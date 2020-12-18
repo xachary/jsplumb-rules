@@ -1,8 +1,5 @@
 <template>
   <div id="app">
-    <div>构建树形结构数据，渲染图形：</div>
-    <div>{ type: '条件2/并/或', children: []}</div>
-    <hr />
     <div>表达式：</div>
     <div>
       <input type="text" v-model="expression" style="width: 100%" />
@@ -29,10 +26,10 @@
       }
     },
     computed: {},
-    watch:{
-      expression(){
-        localStorage.setItem('expression',this.expression)
-      }
+    watch: {
+      expression() {
+        localStorage.setItem('expression', this.expression)
+      },
     },
     mounted() {
       let test = [
@@ -107,7 +104,9 @@
           ],
         },
       ]
-      this.expression = this.expression?this.expression:this.parseExpression(test).replace(/^\(/, '').replace(/^\(/, '').replace(/\)$/, '').replace(/\)$/, '')
+      this.expression = this.expression
+        ? this.expression
+        : this.parseExpression(test).replace(/^\(/, '').replace(/^\(/, '').replace(/\)$/, '').replace(/\)$/, '')
     },
     methods: {
       // 树形数据->表达式
