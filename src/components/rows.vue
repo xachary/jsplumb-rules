@@ -7,28 +7,7 @@
     @mousedown="onMousedown"
     @mouseup="onMouseup"
     @mouseleave="onMouseleave">
-    over: {{ overX }},{{ overY }}
-    <br />
-    ctOver: {{ ctOverX }},{{ ctOverY }}
-    <br />
-    ct: {{ ctWidth }},{{ ctHeight }} / {{ ctLeft }},{{ ctTop }} / {{ ctLeft + left }},{{ ctTop + top }}
-    <br />
-    按下: {{ isDown }}
-    <br />
-    start: {{ startX }},{{ startY }}
-    <br />
-    move: {{ moveX }},{{ moveY }}
-    <br />
-    pos: {{ left }},{{ top }}
-    <br />
-    ct: {{ ctLeft }},{{ ctTop }}
-    <br />
-    <div
-      class="rows__ct"
-      ref="ct"
-      :id="containerId"
-      :style="{ transform: `scale(${1 + zoom})`, top: `${top}px`, left: `${left}px` }"
-      @mousemove="onCtMouseover">
+    <div class="rows__ct" ref="ct" :id="containerId" :style="{ transform: `scale(${1 + zoom})`, top: `${top}px`, left: `${left}px` }">
       <row v-for="(item, index) in tree.children" :value="item" :key="index" :index="index" :level="1" :parent="tree" @refresh="onRefresh"></row>
     </div>
   </div>
@@ -81,8 +60,6 @@
         startY: 0,
         moveX: 0,
         moveY: 0,
-        offsetX: 0,
-        offsetY: 0,
         lastLeft: 0,
         lastTop: 0,
         isDown: false,
@@ -90,8 +67,10 @@
         ctLeft: 0,
         ctWidth: 0,
         ctHeight: 0,
-        ctOverX: 0,
-        ctOverY: 0,
+        rowsWidth: 0,
+        rowsHeight: 0,
+        //
+        inited: false,
       }
     },
     computed: {},
@@ -104,6 +83,14 @@
           }
         },
       },
+      inited() {
+        if (this.inited) {
+          this.$nextTick(() => {
+            this.updateCtSize()
+            this.fitSize()
+          })
+        }
+      },
     },
     mounted() {
       this.instance = jsPlumb.getInstance({
@@ -113,30 +100,17 @@
         this.ready = true
         this.update()
       })
-      let { top, left } = this.$refs.ct.getBoundingClientRect()
-      this.ctTop = top
-      this.ctLeft = left
-      // 监听容器尺寸变化
+
+      // 监听图形尺寸变化
+
       new ResizeObserver(() => {
-        // console.log(this.$refs.rows.getBoundingClientRect())
-        // let { top, left } = this.$refs.rows.getBoundingClientRect()
-        // this.ctTop = top
-        // this.ctLeft = left
-      }).observe(this.$refs.rows)
-      window.addEventListener('resize', () => {
-        // console.log(this.$refs.ct.getBoundingClientRect())
-        // let { top, left } = this.$refs.ct.getBoundingClientRect()
-        // this.ctTop = top
-        // this.ctLeft = left
-      })
-      //
-      new ResizeObserver(() => {
-        let { top, left, width, height } = this.$refs.ct.getBoundingClientRect()
-        this.ctWidth = width
-        this.ctHeight = height
-        this.ctTop = top
-        this.ctLeft = left
+        this.updateCtSize()
       }).observe(this.$refs.ct)
+      // 监听容器尺寸变化
+      this.updateRowsSize()
+      new ResizeObserver(() => {
+        this.updateRowsSize()
+      }).observe(this.$refs.rows)
     },
     methods: {
       update() {
@@ -149,6 +123,7 @@
           }
           this.injectId(tree)
           this.tree = tree
+
           this.draw()
         } else {
           this.tree = {
@@ -167,6 +142,7 @@
           }
           this.draw()
         }
+        this.inited = true
       },
       // 注入/更新节点id
       injectId(node, level = 1) {
@@ -410,23 +386,39 @@
       },
       //
       onMousewheel(e) {
+        let lastCtWidth = this.ctWidth * (1 + this.zoom)
+        let lastCtHeight = this.ctHeight * (1 + this.zoom)
+        let lastOffsetX = this.overX - this.lastLeft - this.ctLeft
+        let lastOffsetY = this.overY - this.lastTop - this.ctTop
+        let rateX = lastOffsetX / lastCtWidth
+        let rateY = lastOffsetY / lastCtHeight
+
         if (e.deltaY < 0) {
-          if (this.zoom < 2.8) {
-            this.zoom += 0.2
+          if (this.zoom < 2.9) {
+            this.zoom += 0.1
           }
         } else if (e.deltaY > 0) {
-          if (this.zoom > -0.7) {
-            this.zoom -= 0.2
+          if (this.zoom > -0.8) {
+            this.zoom -= 0.1
           }
         }
-        this.left = -(this.ctOverX - this.ctLeft) * (1 + this.zoom) * this.zoom
-        this.top = -(this.ctOverY - this.ctTop) * (1 + this.zoom) * this.zoom
+
+        let newCtWidth = this.ctWidth * (1 + this.zoom)
+        let newCtHeight = this.ctHeight * (1 + this.zoom)
+        let moreWidth = newCtWidth - lastCtWidth
+        let moreHeight = newCtHeight - lastCtHeight
+        let newSpanX = newCtWidth * rateX - lastOffsetX
+        let newSpanY = newCtHeight * rateY - lastOffsetY
+
+        this.left = this.lastLeft - newSpanX
+        this.top = this.lastTop - newSpanY
         this.lastLeft = this.left
         this.lastTop = this.top
       },
       onMouseover(e) {
         this.overX = e.clientX
         this.overY = e.clientY
+
         if (this.isDown) {
           this.moveX = e.clientX
           this.moveY = e.clientY
@@ -449,9 +441,28 @@
         this.lastLeft = this.left
         this.lastTop = this.top
       },
-      onCtMouseover(e) {
-        this.ctOverX = e.clientX
-        this.ctOverY = e.clientY
+      updateCtSize() {
+        let { top, left, width, height } = this.$refs.ct.getBoundingClientRect()
+        this.ctTop = top
+        this.ctLeft = left
+        this.ctWidth = width
+        this.ctHeight = height
+      },
+      updateRowsSize() {
+        let { width, height } = this.$refs.rows.getBoundingClientRect()
+        this.rowsWidth = width
+        this.rowsHeight = height
+      },
+      fitSize() {
+        this.rateRows = this.rowsWidth / this.rowsHeight
+        this.rateCt = this.ctWidth / this.ctHeight
+        if (this.rateRows > this.rateCt) {
+          this.zoom = this.rowsHeight / this.ctHeight - 1
+          this.left = (this.rowsWidth - this.ctWidth * (1 + this.zoom)) / 2
+        } else if (this.rateRows < this.rateCt) {
+          this.zoom = this.rowsWidth / this.ctWidth - 1
+          this.top = (this.rowsHeight - this.ctHeight * (1 + this.zoom)) / 2
+        }
       },
     },
     provide() {

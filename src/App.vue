@@ -1,11 +1,11 @@
 <template>
   <div id="app">
+    <rows v-model="expression" style="margin: 50px auto; border: 1px solid blue"></rows>
+    <hr />
     <div>表达式：</div>
     <div>
       <input type="text" v-model="expression" style="width: 100%" />
     </div>
-    <hr />
-    <rows v-model="expression" style="margin: 0 auto; box-shadow: 0 0 10px 0 #dddddd"></rows>
   </div>
 </template>
 
@@ -127,6 +127,9 @@
 
 <style lang="less">
   @import './styles/row.less';
+  body {
+    margin: 0;
+  }
   #app {
     font-family: 'Avenir', Helvetica, Arial, sans-serif;
 
