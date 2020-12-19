@@ -119,7 +119,6 @@
               children: [this.value],
               parents: [...this.value.parents],
               type: 'logic',
-              id,
             }
             this.parent.children.splice(index, 1, node)
             this.$emit('refresh')
@@ -149,7 +148,6 @@
         this.share.moveId = this.value.id
       },
       onDrop(e) {
-        // TODO: 拖动左右移动
         if (this.value.type === 'logic') {
           let node = JSON.parse(e.dataTransfer.getData('node'))
           if (this.value.id !== node.id && !this.value.parents.includes(node.id)) {
@@ -162,11 +160,11 @@
       onDragover(e) {
         e.preventDefault()
         if (this.value.type === 'logic') {
-          if (this.value.parents.includes(this.share.moveId)) {
+          if (this.value.parents.includes(this.share.moveId) || this.value.children.findIndex((o) => o.id === this.share.moveId) >= 0) {
             this.status = 'disabled'
             return
           }
-        } else if (this.value.type === 'rule') {
+        } else if (this.value.type === 'rule' && this.value.id !== this.share.moveId) {
           this.status = 'disabled'
           return
         }
