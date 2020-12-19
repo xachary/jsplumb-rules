@@ -4,7 +4,7 @@
     <hr />
     <div>表达式：</div>
     <div>
-      <input type="text" v-model="expression" style="width: 100%" />
+      <input type="text" v-model="expression" style="width: 90%" />
     </div>
   </div>
 </template>

@@ -7,7 +7,16 @@
     @mousedown="onMousedown"
     @mouseup="onMouseup"
     @mouseleave="onMouseleave">
-    <div class="rows__ct" ref="ct" :id="containerId" :style="{ transform: `scale(${1 + zoom})`, top: `${top}px`, left: `${left}px` }">
+    ctWidth:{{ ctWidth }}
+    <br />
+    rowsWidth:{{ rowsWidth }}
+    <br />
+    overX:{{ overX }}
+    <div
+      class="rows__ct"
+      ref="ct"
+      :id="containerId"
+      :style="{ transform: `scale(${1 + zoom})`, top: `${top}px`, left: `${left}px`, opacity: inited ? 1 : 0 }">
       <row v-for="(item, index) in tree.children" :value="item" :key="index" :index="index" :level="1" :parent="tree" @refresh="onRefresh"></row>
     </div>
   </div>
@@ -67,6 +76,8 @@
         ctLeft: 0,
         ctWidth: 0,
         ctHeight: 0,
+        rowsTop: 0,
+        rowsLeft: 0,
         rowsWidth: 0,
         rowsHeight: 0,
         //
@@ -85,7 +96,7 @@
       },
       inited() {
         if (this.inited) {
-          this.$nextTick(() => {
+          setTimeout(() => {
             this.updateCtSize()
             this.fitSize()
           })
@@ -106,6 +117,9 @@
       new ResizeObserver(() => {
         this.updateCtSize()
       }).observe(this.$refs.ct)
+      //   setInterval(() => {
+      //     this.updateCtSize()
+      //   }, 1000)
       // 监听容器尺寸变化
       this.updateRowsSize()
       new ResizeObserver(() => {
@@ -321,9 +335,6 @@
       // 重画线
       onRefresh() {
         let temp = this.parseExpression(this.tree.children)
-        console.log(this.value)
-        console.log(temp)
-        console.log('')
         if (this.value !== temp) {
           this.$emit('change', temp)
         }
@@ -386,22 +397,33 @@
       },
       //
       onMousewheel(e) {
+        if (e.ctrlKey) {
+          if (e.deltaY < 0) {
+            if (this.zoom < 2.9) {
+              this.changeZoom(0.1)
+            }
+          } else if (e.deltaY > 0) {
+            if (this.zoom > -0.8) {
+              this.changeZoom(-0.1)
+            }
+          }
+        } else {
+          this.left -= e.deltaX
+          this.top -= e.deltaY
+          this.lastLeft = this.left
+          this.lastTop = this.top
+        }
+        e.preventDefault()
+      },
+      changeZoom(value) {
         let lastCtWidth = this.ctWidth * (1 + this.zoom)
         let lastCtHeight = this.ctHeight * (1 + this.zoom)
-        let lastOffsetX = this.overX - this.lastLeft - this.ctLeft
-        let lastOffsetY = this.overY - this.lastTop - this.ctTop
+        let lastOffsetX = this.overX - this.lastLeft - this.rowsLeft
+        let lastOffsetY = this.overY - this.lastTop - this.rowsTop
         let rateX = lastOffsetX / lastCtWidth
         let rateY = lastOffsetY / lastCtHeight
 
-        if (e.deltaY < 0) {
-          if (this.zoom < 2.9) {
-            this.zoom += 0.1
-          }
-        } else if (e.deltaY > 0) {
-          if (this.zoom > -0.8) {
-            this.zoom -= 0.1
-          }
-        }
+        this.zoom += value
 
         let newCtWidth = this.ctWidth * (1 + this.zoom)
         let newCtHeight = this.ctHeight * (1 + this.zoom)
@@ -442,27 +464,54 @@
         this.lastTop = this.top
       },
       updateCtSize() {
-        let { top, left, width, height } = this.$refs.ct.getBoundingClientRect()
-        this.ctTop = top
-        this.ctLeft = left
-        this.ctWidth = width
-        this.ctHeight = height
+        if (this.$refs.ct) {
+          let { top, left, width, height } = this.$refs.ct.getBoundingClientRect()
+
+          this.ctTop = top
+          this.ctLeft = left
+          this.ctWidth = this.$refs.ct.offsetWidth // width / (1 + this.zoom)
+          this.ctHeight = this.$refs.ct.offsetHeight // height / (1 + this.zoom)
+        }
       },
       updateRowsSize() {
-        let { width, height } = this.$refs.rows.getBoundingClientRect()
-        this.rowsWidth = width
-        this.rowsHeight = height
+        if (this.$refs.rows) {
+          let { top, left, width, height } = this.$refs.rows.getBoundingClientRect()
+          this.rowsTop = top
+          this.rowsLeft = left
+          this.rowsWidth = this.$refs.rows.offsetWidth //width
+          this.rowsHeight = this.$refs.rows.offsetHeight // height
+        }
       },
       fitSize() {
         this.rateRows = this.rowsWidth / this.rowsHeight
         this.rateCt = this.ctWidth / this.ctHeight
+        let zoom = 0
+        let left = 0
+        let top = 0
         if (this.rateRows > this.rateCt) {
-          this.zoom = this.rowsHeight / this.ctHeight - 1
-          this.left = (this.rowsWidth - this.ctWidth * (1 + this.zoom)) / 2
+          zoom = this.rowsHeight / this.ctHeight - 1
         } else if (this.rateRows < this.rateCt) {
-          this.zoom = this.rowsWidth / this.ctWidth - 1
-          this.top = (this.rowsHeight - this.ctHeight * (1 + this.zoom)) / 2
+          zoom = this.rowsWidth / this.ctWidth - 1
         }
+        zoom = (zoom > 0 ? Math.floor(zoom * 10) : Math.ceil(zoom * 10)) / 10
+        left = (this.rowsWidth - this.ctWidth * (1 + zoom)) / 2
+
+        top = (this.rowsHeight - this.ctHeight * (1 + zoom)) / 2
+
+        this.overX = this.rowsLeft
+        this.overY = this.rowsTop
+
+        this.changeZoom(zoom)
+
+        this.onMousedown({
+          clientX: 0,
+          clientY: 0,
+        })
+        this.onMouseover({
+          clientX: left,
+          clientY: top,
+        })
+        this.onMouseup()
       },
     },
     provide() {
