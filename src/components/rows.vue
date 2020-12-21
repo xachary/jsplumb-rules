@@ -7,11 +7,7 @@
     @mousedown="onMousedown"
     @mouseup="onMouseup"
     @mouseleave="onMouseleave">
-    ctWidth:{{ ctWidth }}
     <br />
-    rowsWidth:{{ rowsWidth }}
-    <br />
-    overX:{{ overX }}
     <div
       class="rows__ct"
       ref="ct"
@@ -82,6 +78,9 @@
         rowsHeight: 0,
         //
         inited: false,
+        zoomSpeed: 0.1,
+        zoomMax: 3,
+        zoomMin: 0.2,
       }
     },
     computed: {},
@@ -397,21 +396,20 @@
       },
       //
       onMousewheel(e) {
-        if (e.ctrlKey) {
-          if (e.deltaY < 0) {
-            if (this.zoom < 2.9) {
-              this.changeZoom(0.1)
-            }
-          } else if (e.deltaY > 0) {
-            if (this.zoom > -0.8) {
-              this.changeZoom(-0.1)
-            }
+        // if (e.ctrlKey) {
+        //   this.left -= e.deltaX
+        //   this.top -= e.deltaY
+        //   this.lastLeft = this.left
+        //   this.lastTop = this.top
+        // }
+        if (e.deltaY < 0) {
+          if (this.zoom <= this.zoomMax - this.zoomSpeed) {
+            this.changeZoom(this.zoomSpeed)
           }
-        } else {
-          this.left -= e.deltaX
-          this.top -= e.deltaY
-          this.lastLeft = this.left
-          this.lastTop = this.top
+        } else if (e.deltaY > 0) {
+          if (this.zoom >= this.zoomMin - 1 + this.zoomSpeed) {
+            this.changeZoom(-this.zoomSpeed)
+          }
         }
         e.preventDefault()
       },
@@ -424,6 +422,7 @@
         let rateY = lastOffsetY / lastCtHeight
 
         this.zoom += value
+        this.zoom = Math.round(this.zoom * 10) / 10
 
         let newCtWidth = this.ctWidth * (1 + this.zoom)
         let newCtHeight = this.ctHeight * (1 + this.zoom)
@@ -493,7 +492,8 @@
         } else if (this.rateRows < this.rateCt) {
           zoom = this.rowsWidth / this.ctWidth - 1
         }
-        zoom = (zoom > 0 ? Math.floor(zoom * 10) : Math.ceil(zoom * 10)) / 10
+
+        zoom = Math.floor(zoom * 10) / 10
         left = (this.rowsWidth - this.ctWidth * (1 + zoom)) / 2
 
         top = (this.rowsHeight - this.ctHeight * (1 + zoom)) / 2
