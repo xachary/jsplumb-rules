@@ -6,7 +6,8 @@
     @mousemove="onMouseover"
     @mousedown="onMousedown"
     @mouseup="onMouseup"
-    @mouseleave="onMouseleave">
+    @mouseleave="onMouseleave"
+    @click="onClick">
     <div
       class="rows__ct"
       ref="ct"
@@ -108,7 +109,7 @@
         if (this.inited) {
           setTimeout(() => {
             this.updateCtSize()
-            // this.fitSize()
+            this.fitSize()
           })
         }
       },
@@ -544,6 +545,9 @@
       },
       onFocus(row) {
         this.current = row.id
+      },
+      onClick() {
+        this.current = ''
       },
     },
     provide() {
