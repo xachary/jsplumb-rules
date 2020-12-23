@@ -7,13 +7,22 @@
     @mousedown="onMousedown"
     @mouseup="onMouseup"
     @mouseleave="onMouseleave">
-    <br />
     <div
       class="rows__ct"
       ref="ct"
       :id="containerId"
       :style="{ transform: `scale(${1 + zoom})`, top: `${top}px`, left: `${left}px`, opacity: inited ? 1 : 0 }">
-      <row v-for="(item, index) in tree.children" :value="item" :key="index" :index="index" :level="1" :parent="tree" @refresh="onRefresh"></row>
+      <row
+        v-for="(item, index) in tree.children"
+        :value="item"
+        :key="index"
+        :index="index"
+        :level="1"
+        :parent="tree"
+        @refresh="onRefresh"
+        @focus="onFocus"
+        :current="current">
+      </row>
     </div>
   </div>
 </template>
@@ -81,6 +90,8 @@
         zoomSpeed: 0.1,
         zoomMax: 3,
         zoomMin: 0.2,
+        //
+        current: '',
       }
     },
     computed: {},
@@ -97,7 +108,7 @@
         if (this.inited) {
           setTimeout(() => {
             this.updateCtSize()
-            this.fitSize()
+            // this.fitSize()
           })
         }
       },
@@ -160,6 +171,9 @@
       // 注入/更新节点id
       injectId(node, level = 1) {
         node.children.forEach((o, i) => {
+          if (!o) {
+            debugger
+          }
           if (o.type === 'logic') {
             o.addBtnId = uuid()
           }
@@ -202,13 +216,13 @@
                 exps.push(`(${this.parseExpression([...placeholder, ...o.children], o.value, level + 1)})`)
               }
             }
-          } else if (o.type === 'rule' && o.value) {
+          } else if (o.type === 'rule' /* && o.value*/) {
             exps.push(o.value)
           } else if (o.type === 'placeholder') {
             exps.push(o.value)
           } else if (o.type === 'unset') {
             exps.push(o.value)
-          } else if (o.type === 'unset-logic') {
+          } else if (o.type === 'unset-rule') {
             exps.push(o.value)
           }
         })
@@ -237,6 +251,12 @@
                 value: '?',
                 children: [],
                 type: 'unset',
+              })
+            } else if (o.type === 'unset-rule') {
+              node.children.push({
+                value: '*',
+                children: [],
+                type: 'unset-rule',
               })
             } else if (o.type === 'placeholder') {
               node.children.push({
@@ -318,6 +338,12 @@
               type: 'unset',
               children: [],
             })
+          } else if (expression[i] === '*') {
+            ruleArray.push({
+              expr: expression[i],
+              type: 'unset-rule',
+              children: [],
+            })
           } else {
             ruleStack.push(expression[i])
             if (i === expression.length - 1) {
@@ -332,21 +358,24 @@
         return ruleArray
       },
       // 重画线
-      onRefresh() {
+      onRefresh(noDraw) {
         let temp = this.parseExpression(this.tree.children)
         if (this.value !== temp) {
           this.$emit('change', temp)
         }
-
-        this.draw()
+        this.pauseDraw = noDraw
       },
       draw() {
-        this.instance.reset()
-        setTimeout(() => {
-          this.tree.children.forEach((o) => {
-            this.drawLine(o)
+        if (!this.pauseDraw) {
+          this.instance.reset()
+          setTimeout(() => {
+            this.tree.children.forEach((o) => {
+              this.drawLine(o)
+            })
           })
-        })
+        } else {
+          this.pauseDraw = false
+        }
       },
       drawLine(item, level = 1) {
         let common = {
@@ -358,7 +387,7 @@
             {
               source: item.id,
               target: item.addBtnId,
-              paintStyle: { stroke: '#666666', strokeWidth: 1, dashstyle: '2 2' },
+              paintStyle: { stroke: 'rgba(177, 177, 177, 1)', strokeWidth: 1, dashstyle: '3 2' },
               overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
               anchor: ['Bottom', 'Top'],
             },
@@ -372,7 +401,7 @@
               {
                 source: item.id,
                 target: o.id,
-                paintStyle: { stroke: '#0066FF', strokeWidth: 2 },
+                paintStyle: { stroke: 'rgba(153, 153, 153, 1)', strokeWidth: 2 },
                 overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
                 anchor: ['Bottom', 'Top'],
               },
@@ -386,7 +415,7 @@
             {
               source: item.insertBtnId,
               target: item.id,
-              paintStyle: { stroke: '#0066FF', strokeWidth: 2 },
+              paintStyle: { stroke: 'rgba(153, 153, 153, 1)', strokeWidth: 2 },
               overlays: [['Arrow', { width: 8, length: 8, location: 1 }]],
               anchor: ['Bottom', 'Top'],
             },
@@ -512,6 +541,9 @@
           clientY: top,
         })
         this.onMouseup()
+      },
+      onFocus(row) {
+        this.current = row.id
       },
     },
     provide() {

@@ -1,5 +1,6 @@
 <template>
-  <div class="row" v-if="value.type !== 'placeholder'" :style="{ 'background-color': `rgba(0,0,0,${5 + 1 * value.level}%)` }">
+  <!-- 'background-color': `rgba(0,0,0,${5 + 1 * value.level}%)` -->
+  <div class="row" v-if="value.type !== 'placeholder'">
     <div
       class="row__insert"
       :id="value.insertBtnId"
@@ -7,14 +8,14 @@
       @mousedown.stop
       @mouseup.stop
       :style="{
-        'background-color':
+        visibility:
           value.type === 'unset' ||
           !value.value ||
           (value.type === 'logic' && (value.value === '~~' || value.children.filter((o) => o.type !== 'placeholder').length < 2))
-            ? '#ddd'
+            ? 'hidden'
             : undefined,
       }">
-      +
+      <i class="el-icon-circle-plus"></i>
     </div>
     <div
       class="row__header"
@@ -22,40 +23,85 @@
       :class="{
         'row__header--unset': value.type === 'unset',
         'row__header--empty': value.type === 'rule' && !value.value,
-        'row__header--error': value.type === 'logic' && (value.children.filter((o) => o.type !== 'placeholder').length < 2 || value.value === '~~'),
+        'row__header--error':
+          value.type === 'unset' ||
+          (value.type === 'logic' && (value.children.filter((o) => o.type !== 'placeholder').length < 2 || value.value === '~~')),
+        'row__header--drop': status === 'drop',
         'row__header--disabled': status === 'disabled',
+        //
+        'row__header--rule': value.type === 'rule',
+        'row__header--b': value.value === '&&',
+        'row__header--h': value.value === '||',
+        //
+        'row__header--drag': value.level > 1 && value.id === current,
       }"
       @drop="onDrop"
       @dragstart="onDragstart"
       @dragover="onDragover"
       @dragend="onDragend"
       @dragleave="onDragleave"
-      :draggable="value.level > 1"
+      :draggable="value.level > 1 && value.id === current"
       @mousedown.stop
-      @mouseup.stop>
+      @mouseup.stop
+      @click.stop="onClick">
       <!-- (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0)) -->
-      <div class="row__header__ct">
+      <div class="row__header__ct" :class="{ 'row__header__ct--focus': value.id === current }" @dragover.stop="onDragover">
         <span v-if="value.type === 'rule'">
-          {{ value.value ? value.value : '设置条件(待实现)' }}
+          {{ value.value }}
         </span>
+        <div
+          v-if="value.type === 'unset-rule'"
+          @click="
+            value.value = Date.now()
+            value.type = 'rule'
+            $emit('refresh')
+          ">
+          <section class="row__header__ct__error"><i class="el-icon-warning"></i><span>请设置条件</span></section>
+        </div>
         <div v-if="value.type === 'logic' && value.value !== '~~'">
-          <span> {{ value.value }} </span>
-          <button @click="onSwitch">切换</button><br />
-          <span v-if="value.children.filter((o) => o.type !== 'placeholder').length < 2">请设置至少两个条件</span>
+          <span> {{ parseLabel(value.value) }} </span>
+          <el-button type="text" @click="onSwitch">
+            <i class="el-icon-sort" style="transform: rotate(90deg)"></i>
+          </el-button>
+          <section class="row__header__ct__error" v-if="value.children.filter((o) => o.type !== 'placeholder').length < 2">
+            <i class="el-icon-warning"></i><span>请设置至少两个条件</span>
+          </section>
         </div>
         <div v-if="value.type === 'unset' || (value.type === 'logic' && value.value === '~~')" style="text-align: left">
-          <label :for="value.id"><input :name="value.id" type="radio" @change="onChangeType('logic', '&&')" />&&</label><br />
-          <label :for="value.id"><input :name="value.id" type="radio" @change="onChangeType('logic', '||')" />||</label><br />
-          <label :for="value.id" v-if="value.type === 'unset'">
-            <input :name="value.id" type="radio" @change="onChangeType('rule', Date.now())" />条件</label>
+          <el-radio v-model="unsetSelect" :label="{ type: 'logic', value: '&&' }">满足所有条件</el-radio>
+          <br />
+          <el-radio v-model="unsetSelect" :label="{ type: 'logic', value: '||' }">满足任一条件</el-radio>
+          <br />
+          <el-radio v-model="unsetSelect" :label="{ type: 'rule', value: '*' }" v-if="value.type === 'unset'">条件</el-radio>
+          <section class="row__header__ct__error" v-if="value.children.filter((o) => o.type !== 'placeholder').length < 2">
+            <i class="el-icon-warning"></i><span>请选择节点类型</span>
+          </section>
         </div>
+        <i class="row__header__ct__color-bar" @dragover.stop="onDragover"> </i>
+        <el-button type="text" class="row__header__ct__remove" @click="onRemove" v-if="value.level > 1" @dragover.stop="onDragover">
+          <i class="el-icon-remove"></i>
+        </el-button>
       </div>
-      <div class="row__header__remove" @click="onRemove" v-if="value.level > 1">-</div>
     </div>
     <div class="row__items">
-      <row v-for="item in value.children" :value="item" :key="item.id" :level="value.level + 1" :parent="value" @refresh="$emit('refresh')"> </row>
+      <row
+        v-for="item in value.children"
+        :value="item"
+        :key="item.id"
+        :level="value.level + 1"
+        :parent="value"
+        @refresh="
+          (noDraw) => {
+            $emit('refresh', noDraw)
+          }
+        "
+        @focus="onFocus"
+        :current="current">
+      </row>
       <div class="row" v-if="value.type === 'logic'">
-        <div class="row__items__add" :id="value.addBtnId" @click="onAdd" @mousedown.stop @mouseup.stop>增加</div>
+        <div class="row__items__add" :id="value.addBtnId" @click="onAdd" @mousedown.stop @mouseup.stop>
+          <i class="el-icon-plus"></i>
+        </div>
       </div>
     </div>
   </div>
@@ -75,10 +121,15 @@
         type: Object,
         default: null,
       },
+      current: {
+        type: String,
+        default: '',
+      },
     },
     data() {
       return {
         status: '',
+        unsetSelect: null,
       }
     },
     computed: {},
@@ -90,6 +141,16 @@
             // this.drawLine()
           }
         },
+      },
+      unsetSelect() {
+        if (this.unsetSelect) {
+          this.value.type = this.unsetSelect.type
+          this.value.value = this.unsetSelect.value
+          if (this.value.type === 'logic') {
+            this.value.addBtnId = `id-${uuid()}`
+          }
+          this.$emit('refresh')
+        }
       },
     },
     mounted() {},
@@ -109,7 +170,7 @@
         this.$emit('refresh')
       },
       onInsert() {
-        if (this.value.type !== 'unset' && this.value.type !== 'unset-logic') {
+        if (this.value.type !== 'unset') {
           if (this.parent) {
             let index = this.parent.children.findIndex((o) => o.id === this.value.id)
             let id = uuid()
@@ -135,14 +196,6 @@
           this.$emit('refresh')
         }
       },
-      onChangeType(type, value) {
-        this.value.type = type
-        this.value.value = value
-        if (this.value.type === 'logic') {
-          this.value.addBtnId = `id-${uuid()}`
-        }
-        this.$emit('refresh')
-      },
       onDragstart(e) {
         e.dataTransfer.setData('node', JSON.stringify(this.value))
         this.share.moveId = this.value.id
@@ -159,6 +212,7 @@
       },
       onDragover(e) {
         e.preventDefault()
+        clearTimeout(this.timer)
         if (this.value.type === 'logic') {
           if (this.value.parents.includes(this.share.moveId) || this.value.children.findIndex((o) => o.id === this.share.moveId) >= 0) {
             this.status = 'disabled'
@@ -167,12 +221,19 @@
         } else if (this.value.type === 'rule' && this.value.id !== this.share.moveId) {
           this.status = 'disabled'
           return
+        } else if (this.value.type === 'unset' && this.value.id !== this.share.moveId) {
+          this.status = 'disabled'
+          return
         }
-
-        this.status = ''
+        if (this.value.id !== this.share.moveId) {
+          this.status = 'drop'
+        }
       },
       onDragleave(e) {
-        this.status = ''
+        clearTimeout(this.timer)
+        this.timer = setTimeout(() => {
+          this.status = ''
+        }, 200)
       },
       onDragend(e) {
         if (this.share.dropId) {
@@ -182,6 +243,22 @@
       },
       onSwitch() {
         this.value.value = this.value.value === '&&' ? '||' : '&&'
+        this.$emit('refresh', true)
+      },
+      parseLabel(value) {
+        if (value === '&&') {
+          return '满足所有条件'
+        } else if (value === '||') {
+          return '满足任一条件'
+        } else {
+          return value
+        }
+      },
+      onClick() {
+        this.$emit('focus', this.value)
+      },
+      onFocus(row) {
+        this.$emit('focus', row)
       },
     },
     inject: ['share'],
