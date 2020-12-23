@@ -8,13 +8,9 @@
       @mousedown.stop
       @mouseup.stop
       :style="{
-        visibility:
-          value.type === 'unset' ||
-          !value.value ||
-          (value.type === 'logic' && (value.value === '~~' || value.children.filter((o) => o.type !== 'placeholder').length < 2))
-            ? 'hidden'
-            : undefined,
+        visibility: value.type === 'unset' ? 'hidden' : undefined,
       }">
+      <!-- (value.type === 'logic' && (value.value === '~~' || value.children.filter((o) => o.type !== 'placeholder').length < 2)) -->
       <i class="el-icon-circle-plus"></i>
     </div>
     <div
