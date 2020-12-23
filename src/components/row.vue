@@ -39,8 +39,10 @@
       :draggable="value.level > 1 && value.id === current"
       @mousedown.stop
       @mouseup.stop
-      @click.stop="onClick">
-      <!-- (value.type === 'rule' || (value.type === 'logic' && value.children.filter((o) => o.type === 'placeholder').length === 0)) -->
+      @click.stop="onClick"
+      :style="{
+        'margin-bottom': `${getMarginBottom}px`,
+      }">
       <div class="row__header__ct" :class="{ 'row__header__ct--focus': value.id === current }" @dragover.stop="onDragover">
         <span v-if="value.type === 'rule'">
           {{ value.value }}
@@ -128,7 +130,32 @@
         unsetSelect: null,
       }
     },
-    computed: {},
+    computed: {
+      getMarginBottom() {
+        // value.type !== 'unset' && parent.children.findIndex((o) => o.type === 'unset') >= 0
+        //   ? 60
+        //   : value.type === 'logic' &&
+        //     value.children.filter((o) => value.type !== 'placeholder').length >= 2 &&
+        //     value.value !== '~~' &&
+        //     parent.children.findIndex(
+        //       (o) => o.type === 'logic' && (o.children.filter((o) => o.type !== 'placeholder').length < 2 || o.value === '~~')
+        //     ) >= 0
+        //   ? 200
+        //   : 0
+        // if (this.value.type !== 'unset' && this.parent.children.findIndex((o) => o.type === 'unset') >= 0) {
+        //   if (this.value.type === 'logic' && this.value.children.filter((o) => o.type !== 'placeholder').length < 2) {
+        //     return 112.4 - 69.2
+        //   }
+        //   return 112.4 - 47.6
+        // }
+        //else if (this.value.type === 'logic') {
+        //   if (this.value.value !== '~~' && this.value.children.filter((o) => value.type !== 'placeholder') >= 2) {
+        //     return 0
+        //   }
+        // }
+        return 0
+      },
+    },
     watch: {
       value: {
         immediate: true,

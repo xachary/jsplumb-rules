@@ -29,7 +29,7 @@
   flex-shrink: 0;
 
   // margin: 10px;
-  padding: 5px;
+  padding: 5px 15px;
   white-space: nowrap;
   .row__insert {
     cursor: pointer;
@@ -53,7 +53,6 @@
     position: relative;
     display: inline-block;
     line-height: 22px;
-
     &.row__header--unset {
       // background-color: #ffffcc;
     }
@@ -151,6 +150,11 @@
         height: calc(100% + 2px);
         border-radius: 2px 0 0 2px;
       }
+      &:hover {
+        .row__header__ct__remove {
+          display: block;
+        }
+      }
       //
       .row__header__ct__remove {
         font-size: 12px;
@@ -159,6 +163,7 @@
         position: absolute;
         top: 3px;
         right: $top;
+        display: none;
         padding: 0;
         &:hover {
           color: lighten(#f56c6c, 10%);
@@ -177,7 +182,7 @@
       display: inline-block;
       width: 22px;
       line-height: 22px;
-      margin-top: calc(@top + @insert-height + 0px);
+      margin-top: calc(@top + 16px + 0px);
       padding: 12px;
       background-color: rgb(251, 251, 251);
       border: 1px dashed rgba(177, 177, 177, 1);

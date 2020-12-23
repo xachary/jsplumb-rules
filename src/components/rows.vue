@@ -109,7 +109,7 @@
         if (this.inited) {
           setTimeout(() => {
             this.updateCtSize()
-            this.fitSize()
+            // this.fitSize()
           })
         }
       },
